@@ -88,6 +88,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out_dir", type=str, default="outputs/eval")
+    parser.add_argument("--max_pairs", type=int, default=0)
     return parser.parse_args()
 
 
@@ -99,6 +100,8 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     transform = default_transform(224)
     dataset = make_lfw_pairs(args.data_root, split="10fold", transform=transform)
+    if args.max_pairs > 0:
+        dataset = torch.utils.data.Subset(dataset, list(range(min(args.max_pairs, len(dataset)))))
     loader = DataLoader(
         dataset,
         batch_size=args.batch_size,

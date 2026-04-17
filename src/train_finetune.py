@@ -102,6 +102,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out_dir", type=str, default="outputs/train")
+    parser.add_argument("--max_train_samples", type=int, default=0)
+    parser.add_argument("--max_val_samples", type=int, default=0)
     return parser.parse_args()
 
 
@@ -126,6 +128,15 @@ def main() -> None:
         min_faces_per_person=args.min_faces_per_person,
     )
 
+    if args.max_train_samples > 0:
+        train_set = torch.utils.data.Subset(
+            train_set, list(range(min(args.max_train_samples, len(train_set))))
+        )
+    if args.max_val_samples > 0:
+        val_set = torch.utils.data.Subset(
+            val_set, list(range(min(args.max_val_samples, len(val_set))))
+        )
+
     train_loader = DataLoader(
         train_set,
         batch_size=args.batch_size,
@@ -143,7 +154,11 @@ def main() -> None:
 
     model = build_model(
         name=args.model,
-        num_classes=len(train_set.classes),
+        num_classes=(
+            len(train_set.dataset.classes)
+            if isinstance(train_set, torch.utils.data.Subset)
+            else len(train_set.classes)
+        ),
         freeze_backbone=str2bool(args.freeze_backbone),
     ).to(device)
 
@@ -168,7 +183,11 @@ def main() -> None:
             ckpt = {
                 "model_name": args.model,
                 "state_dict": model.state_dict(),
-                "num_classes": len(train_set.classes),
+                "num_classes": (
+                    len(train_set.dataset.classes)
+                    if isinstance(train_set, torch.utils.data.Subset)
+                    else len(train_set.classes)
+                ),
                 "best_val_acc": best_acc,
             }
             torch.save(ckpt, out_dir / "best.pt")
